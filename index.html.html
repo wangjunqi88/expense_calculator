@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expense Calculator</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --danger: #ef4444;
+    --ok: #10b981;
+    --warn: #f59e0b;
+    --border: #e5e7eb;
+    --shadow: 0 4px 16px rgba(31, 41, 55, .08);
+  }
+  body.dark {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --border: #334155;
+    --shadow: 0 4px 16px rgba(0, 0, 0, .4);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Noto Sans TC", "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    transition: background .3s, color .3s;
+  }
+  .container { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  header {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  h1 { margin: 0; font-size: 1.6rem; }
+  h1 small { display: block; font-size: .85rem; color: var(--muted); font-weight: 400; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  select, input, button { font: inherit; }
+  select, input[type=text], input[type=number], input[type=date] {
+    padding: 9px 11px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    width: 100%;
+  }
+  .toolbar select { width: auto; }
+  button {
+    cursor: pointer; border: none; border-radius: 10px;
+    padding: 9px 14px; background: var(--primary); color: #fff;
+    transition: background .2s, transform .1s;
+  }
+  button:hover { background: var(--primary-dark); }
+  button:active { transform: scale(.97); }
+  button.ghost { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  button.ghost:hover { background: var(--border); }
+  button.danger { background: var(--danger); }
+
+  .grid { display: grid; gap: 16px; }
+  .summary { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-bottom: 16px; }
+  .card {
+    background: var(--card); border-radius: 16px; padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .stat .label { color: var(--muted); font-size: .85rem; }
+  .stat .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; word-break: break-all; }
+  .value.over { color: var(--danger); }
+  .value.good { color: var(--ok); }
+
+  .budget-box { margin-bottom: 16px; }
+  .budget-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .budget-row .field { flex: 1; min-width: 180px; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  .progress {
+    height: 14px; background: var(--border); border-radius: 999px;
+    overflow: hidden; margin-top: 14px;
+  }
+  .progress > div {
+    height: 100%; width: 0; background: var(--ok);
+    transition: width .4s, background .3s;
+  }
+  .progress-text { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+  .alert {
+    margin-top: 10px; padding: 8px 12px; border-radius: 10px;
+    background: rgba(239, 68, 68, .12); color: var(--danger);
+    font-size: .9rem; display: none;
+  }
+
+  .main { grid-template-columns: 1fr 1.4fr; align-items: start; }
+  @media (max-width: 760px) { .main { grid-template-columns: 1fr; } }
+  h2 { margin: 0 0 14px; font-size: 1.1rem; }
+  form .field { margin-bottom: 12px; }
+  form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  form #addBtn { width: 100%; padding: 11px; }
+  .error { color: var(--danger); font-size: .85rem; min-height: 1.2em; margin-bottom: 6px; }
+
+  .chart-row { margin-bottom: 10px; }
+  .chart-row .top { display: flex; justify-content: space-between; font-size: .88rem; margin-bottom: 3px; }
+  .bar { height: 10px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 999px; transition: width .4s; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters > * { flex: 1; min-width: 120px; }
+  ul.list { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; }
+  ul.list li {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 4px; border-bottom: 1px solid var(--border);
+    animation: pop .25s ease;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  .emoji {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: grid; place-items: center; font-size: 1.2rem; flex-shrink: 0;
+  }
+  .info { flex: 1; min-width: 0; }
+  .info .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .info .meta { font-size: .8rem; color: var(--muted); }
+  .amt { font-weight: 700; white-space: nowrap; }
+  .del {
+    background: transparent; color: var(--muted); padding: 6px 9px; font-size: 1rem;
+  }
+  .del:hover { background: rgba(239, 68, 68, .15); color: var(--danger); }
+  .empty { text-align: center; color: var(--muted); padding: 30px 0; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .split { margin-top: 16px; }
+  .split .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .split .field { flex: 1; min-width: 120px; }
+  .split-result { margin-top: 10px; font-weight: 700; color: var(--primary); }
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--card); color: var(--text); border-radius: 16px;
+    padding: 22px; max-width: 340px; width: 100%; box-shadow: var(--shadow);
+  }
+  .modal p { margin: 0 0 16px; font-weight: 600; }
+  .modal .btns { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>💰 <span data-i18n="title"></span><small data-i18n="subtitle"></small></h1>
+    <div class="toolbar">
+      <select id="lang" aria-label="language">
+        <option value="en">English</option>
+        <option value="id">Bahasa Indonesia</option>
+        <option value="zh">繁體中文</option>
+      </select>
+      <select id="currency" aria-label="currency">
+        <option value="USD">USD $</option>
+        <option value="TWD">TWD NT$</option>
+        <option value="IDR">IDR Rp</option>
+      </select>
+      <button class="ghost" id="themeBtn" type="button">🌙</button>
+    </div>
+  </header>
+
+  <section class="grid summary">
+    <div class="card stat"><div class="label" data-i18n="total"></div><div class="value" id="sTotal">0</div></div>
+    <div class="card stat"><div class="label" data-i18n="remaining"></div><div class="value" id="sRemain">0</div></div>
+    <div class="card stat"><div class="label" data-i18n="count"></div><div class="value" id="sCount">0</div></div>
+    <div class="card stat"><div class="label" data-i18n="average"></div><div class="value" id="sAvg">0</div></div>
+  </section>
+
+  <section class="card budget-box">
+    <h2 data-i18n="budgetTitle"></h2>
+    <div class="budget-row">
+      <div class="field">
+        <label for="budget" data-i18n="budgetLabel"></label>
+        <input type="number" id="budget" min="0" step="any" placeholder="0">
+      </div>
+      <button type="button" id="saveBudget" data-i18n="saveBudget"></button>
+    </div>
+    <div class="progress"><div id="progressBar"></div></div>
+    <div class="progress-text" id="progressText"></div>
+    <div class="alert" id="alertBox"></div>
+  </section>
+
+  <section class="grid main">
+    <div>
+      <div class="card">
+        <h2 data-i18n="addTitle"></h2>
+        <form id="form" novalidate>
+          <div class="field">
+            <label for="name" data-i18n="name"></label>
+            <input type="text" id="name" maxlength="40" autocomplete="off">
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="amount" data-i18n="amount"></label>
+              <input type="number" id="amount" min="0" step="any" inputmode="decimal">
+            </div>
+            <div class="field">
+              <label for="date" data-i18n="date"></label>
+              <input type="date" id="date">
+            </div>
+          </div>
+          <div class="field">
+            <label for="category" data-i18n="category"></label>
+            <select id="category"></select>
+          </div>
+          <div class="error" id="formError"></div>
+          <button type="button" id="addBtn" data-i18n="add"></button>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h2 data-i18n="chartTitle"></h2>
+        <div id="chart"></div>
+      </div>
+
+      <div class="card split">
+        <h2 data-i18n="splitTitle"></h2>
+        <div class="row">
+          <div class="field">
+            <label for="people" data-i18n="people"></label>
+            <input type="number" id="people" min="1" step="1" value="2">
+          </div>
+          <button type="button" id="splitBtn" data-i18n="splitBtn"></button>
+        </div>
+        <div class="split-result" id="splitResult"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 data-i18n="listTitle"></h2>
+      <div class="filters">
+        <select id="filterCat"></select>
+        <input type="text" id="search" data-i18n-ph="search">
+        <select id="sort">
+          <option value="dateDesc" data-i18n="sortDateDesc"></option>
+          <option value="amountDesc" data-i18n="sortAmountDesc"></option>
+          <option value="amountAsc" data-i18n="sortAmountAsc"></option>
+        </select>
+      </div>
+      <ul class="list" id="list"></ul>
+      <div class="actions">
+        <button type="button" class="ghost" id="csvBtn" data-i18n="exportCsv"></button>
+        <button type="button" class="danger" id="clearBtn" data-i18n="clearAll"></button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <p id="modalMsg"></p>
+    <div class="btns">
+      <button type="button" class="ghost" id="modalNo">✕</button>
+      <button type="button" class="danger" id="modalYes">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- i18n ---------- */
+  const I18N = {
+    zh: {
+      title: '支出計算器', subtitle: '記錄每一筆花費，掌握你的預算',
+      total: '總支出', remaining: '剩餘預算', count: '筆數', average: '平均每筆',
+      budgetTitle: '每月預算', budgetLabel: '預算金額', saveBudget: '設定預算',
+      addTitle: '新增支出', name: '項目名稱', amount: '金額', date: '日期', category: '類別', add: '＋ 新增',
+      chartTitle: '類別分析', splitTitle: '分攤計算', people: '人數', splitBtn: '計算每人金額',
+      listTitle: '支出清單', search: '搜尋名稱…', allCats: '全部類別',
+      sortDateDesc: '最新優先', sortAmountDesc: '金額高到低', sortAmountAsc: '金額低到高',
+      exportCsv: '匯出 CSV', clearAll: '清除全部',
+      empty: '目前沒有支出紀錄',
+      errName: '請輸入項目名稱', errAmount: '請輸入大於 0 的金額', errDate: '請選擇日期',
+      confirmClear: '確定要清除所有支出嗎？', confirmDel: '刪除這筆支出？',
+      noBudget: '尚未設定預算', used: '已使用',
+      overAlert: '⚠️ 已超出預算：', nearAlert: '⚠️ 預算即將用完（已使用 80% 以上）',
+      perPerson: '每人需付：', badPeople: '請輸入正確人數',
+      cats: { food: '餐飲', transport: '交通', shopping: '購物', fun: '娛樂', bills: '帳單', other: '其他' }
+    },
+    id: {
+      title: 'Kalkulator Pengeluaran', subtitle: 'Catat setiap pengeluaran, kendalikan anggaranmu',
+      total: 'Total Pengeluaran', remaining: 'Sisa Anggaran', count: 'Jumlah Transaksi', average: 'Rata-rata',
+      budgetTitle: 'Anggaran Bulanan', budgetLabel: 'Jumlah anggaran', saveBudget: 'Atur Anggaran',
+      addTitle: 'Tambah Pengeluaran', name: 'Nama item', amount: 'Jumlah', date: 'Tanggal', category: 'Kategori', add: '＋ Tambah',
+      chartTitle: 'Analisis Kategori', splitTitle: 'Bagi Tagihan', people: 'Jumlah orang', splitBtn: 'Hitung per orang',
+      listTitle: 'Daftar Pengeluaran', search: 'Cari nama…', allCats: 'Semua kategori',
+      sortDateDesc: 'Terbaru dulu', sortAmountDesc: 'Nominal tertinggi', sortAmountAsc: 'Nominal terendah',
+      exportCsv: 'Ekspor CSV', clearAll: 'Hapus Semua',
+      empty: 'Belum ada pengeluaran',
+      errName: 'Nama item wajib diisi', errAmount: 'Masukkan jumlah lebih dari 0', errDate: 'Pilih tanggal',
+      confirmClear: 'Hapus semua pengeluaran?', confirmDel: 'Hapus pengeluaran ini?',
+      noBudget: 'Anggaran belum diatur', used: 'terpakai',
+      overAlert: '⚠️ Melebihi anggaran sebesar ', nearAlert: '⚠️ Anggaran hampir habis (terpakai di atas 80%)',
+      perPerson: 'Per orang: ', badPeople: 'Masukkan jumlah orang yang valid',
+      cats: { food: 'Makanan', transport: 'Transportasi', shopping: 'Belanja', fun: 'Hiburan', bills: 'Tagihan', other: 'Lainnya' }
+    },
+    en: {
+      title: 'Expense Calculator', subtitle: 'Track every spend and stay on budget',
+      total: 'Total Spent', remaining: 'Remaining Budget', count: 'Transactions', average: 'Average',
+      budgetTitle: 'Monthly Budget', budgetLabel: 'Budget amount', saveBudget: 'Set Budget',
+      addTitle: 'Add Expense', name: 'Item name', amount: 'Amount', date: 'Date', category: 'Category', add: '+ Add',
+      chartTitle: 'Category Breakdown', splitTitle: 'Split the Bill', people: 'People', splitBtn: 'Calculate per person',
+      listTitle: 'Expenses', search: 'Search name…', allCats: 'All categories',
+      sortDateDesc: 'Newest first', sortAmountDesc: 'Amount high to low', sortAmountAsc: 'Amount low to high',
+      exportCsv: 'Export CSV', clearAll: 'Clear All',
+      empty: 'No expenses yet',
+      errName: 'Please enter an item name', errAmount: 'Enter an amount greater than 0', errDate: 'Please pick a date',
+      confirmClear: 'Delete all expenses?', confirmDel: 'Delete this expense?',
+      noBudget: 'No budget set', used: 'used',
+      overAlert: '⚠️ Over budget by ', nearAlert: '⚠️ Budget almost used up (over 80%)',
+      perPerson: 'Each person pays: ', badPeople: 'Enter a valid number of people',
+      cats: { food: 'Food', transport: 'Transport', shopping: 'Shopping', fun: 'Fun', bills: 'Bills', other: 'Other' }
+    }
+  };
+
+  const CATS = {
+    food:      { emoji: '🍜', color: '#f97316' },
+    transport: { emoji: '🚌', color: '#3b82f6' },
+    shopping:  { emoji: '🛍️', color: '#ec4899' },
+    fun:       { emoji: '🎮', color: '#8b5cf6' },
+    bills:     { emoji: '🧾', color: '#14b8a6' },
+    other:     { emoji: '📦', color: '#6b7280' }
+  };
+
+  /* ---------- state ---------- */
+  const STORE = 'expenseCalc.v1';
+  let state = { expenses: [], budget: 0, lang: 'en', currency: 'USD', dark: false };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORE);
+      if (raw) state = Object.assign(state, JSON.parse(raw));
+    } catch (e) { /* ignore */ }
+  }
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  /* ---------- helpers ---------- */
+  const $ = id => document.getElementById(id);
+  const t = key => I18N[state.lang][key];
+  const catName = k => I18N[state.lang].cats[k];
+
+  function money(n) {
+    const locale = { zh: 'zh-TW', id: 'id-ID', en: 'en-US' }[state.lang];
+    const digits = state.currency === 'IDR' || state.currency === 'TWD' ? 0 : 2;
+    return new Intl.NumberFormat(locale, {
+      style: 'currency', currency: state.currency,
+      minimumFractionDigits: digits, maximumFractionDigits: 2
+    }).format(n);
+  }
+  function today() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 10);
+  }
+  function askConfirm(msg, onYes) {
+    $('modalMsg').textContent = msg;
+    $('modalBg').classList.add('show');
+    const close = () => { $('modalBg').classList.remove('show'); $('modalYes').onclick = $('modalNo').onclick = null; };
+    $('modalYes').onclick = () => { close(); onYes(); };
+    $('modalNo').onclick = close;
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  /* ---------- rendering ---------- */
+  function applyI18n() {
+    document.documentElement.lang = state.lang === 'zh' ? 'zh-Hant' : state.lang;
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+
+    const cat = $('category'); const prev = cat.value;
+    cat.innerHTML = Object.keys(CATS).map(k => `<option value="${k}">${CATS[k].emoji} ${catName(k)}</option>`).join('');
+    if (prev) cat.value = prev;
+
+    const fc = $('filterCat'); const prevF = fc.value || 'all';
+    fc.innerHTML = `<option value="all">${t('allCats')}</option>` +
+      Object.keys(CATS).map(k => `<option value="${k}">${CATS[k].emoji} ${catName(k)}</option>`).join('');
+    fc.value = prevF;
+  }
+
+  function renderSummary() {
+    const total = state.expenses.reduce((s, e) => s + e.amount, 0);
+    const n = state.expenses.length;
+    $('sTotal').textContent = money(total);
+    $('sCount').textContent = n;
+    $('sAvg').textContent = money(n ? total / n : 0);
+
+    const remEl = $('sRemain');
+    remEl.className = 'value';
+    if (state.budget > 0) {
+      const rem = state.budget - total;
+      remEl.textContent = money(rem);
+      remEl.classList.add(rem < 0 ? 'over' : 'good');
+    } else {
+      remEl.textContent = '—';
+    }
+
+    // progress
+    const bar = $('progressBar'), txt = $('progressText'), alertBox = $('alertBox');
+    if (state.budget > 0) {
+      const pct = total / state.budget * 100;
+      bar.style.width = Math.min(pct, 100) + '%';
+      bar.style.background = pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warn)' : 'var(--ok)';
+      txt.textContent = `${pct.toFixed(1)}% ${t('used')}（${money(total)} / ${money(state.budget)}）`;
+      if (pct >= 100) {
+        alertBox.style.display = 'block';
+        alertBox.textContent = t('overAlert') + money(total - state.budget);
+      } else if (pct >= 80) {
+        alertBox.style.display = 'block';
+        alertBox.textContent = t('nearAlert');
+      } else {
+        alertBox.style.display = 'none';
+      }
+    } else {
+      bar.style.width = '0';
+      txt.textContent = t('noBudget');
+      alertBox.style.display = 'none';
+    }
+  }
+
+  function renderChart() {
+    const totals = {};
+    Object.keys(CATS).forEach(k => totals[k] = 0);
+    state.expenses.forEach(e => totals[e.category] = (totals[e.category] || 0) + e.amount);
+    const sum = Object.values(totals).reduce((a, b) => a + b, 0);
+    const rows = Object.keys(CATS)
+      .filter(k => totals[k] > 0)
+      .sort((a, b) => totals[b] - totals[a])
+      .map(k => {
+        const pct = sum ? totals[k] / sum * 100 : 0;
+        return `<div class="chart-row">
+          <div class="top"><span>${CATS[k].emoji} ${catName(k)}</span><span>${money(totals[k])}（${pct.toFixed(0)}%）</span></div>
+          <div class="bar"><div style="width:${pct}%;background:${CATS[k].color}"></div></div>
+        </div>`;
+      });
+    $('chart').innerHTML = rows.length ? rows.join('') : `<div class="empty">${t('empty')}</div>`;
+  }
+
+  function filtered() {
+    const cat = $('filterCat').value;
+    const q = $('search').value.trim().toLowerCase();
+    let arr = state.expenses.filter(e =>
+      (cat === 'all' || e.category === cat) && (!q || e.name.toLowerCase().includes(q)));
+    const sort = $('sort').value;
+    arr.sort((a, b) => {
+      if (sort === 'amountDesc') return b.amount - a.amount;
+      if (sort === 'amountAsc') return a.amount - b.amount;
+      return b.date.localeCompare(a.date) || b.id.localeCompare(a.id);
+    });
+    return arr;
+  }
+
+  function renderList() {
+    const arr = filtered();
+    const ul = $('list');
+    if (!arr.length) { ul.innerHTML = `<li class="empty" style="display:block">${t('empty')}</li>`; return; }
+    ul.innerHTML = '';
+    arr.forEach(e => {
+      const li = document.createElement('li');
+      const c = CATS[e.category] || CATS.other;
+      li.innerHTML = `
+        <div class="emoji" style="background:${c.color}22">${c.emoji}</div>
+        <div class="info"><div class="name"></div><div class="meta">${catName(e.category)} · ${e.date}</div></div>
+        <div class="amt">${money(e.amount)}</div>
+        <button class="del" type="button" title="delete" data-id="${e.id}">✕</button>`;
+      li.querySelector('.name').textContent = e.name; // safe from XSS
+      ul.appendChild(li);
+    });
+  }
+
+  function render() {
+    renderSummary();
+    renderChart();
+    renderList();
+    $('budget').value = state.budget || '';
+  }
+
+  /* ---------- actions ---------- */
+  function addExpense(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    const name = $('name').value.trim();
+    const amount = parseFloat($('amount').value);
+    const date = $('date').value;
+    const err = $('formError');
+    if (!name) { err.textContent = t('errName'); $('name').focus(); return; }
+    if (!(amount > 0)) { err.textContent = t('errAmount'); $('amount').focus(); return; }
+    if (!date) { err.textContent = t('errDate'); $('date').focus(); return; }
+    err.textContent = '';
+    state.expenses.push({ id: uid(), name, amount, date, category: $('category').value });
+    save();
+    $('name').value = ''; $('amount').value = '';
+    $('name').focus();
+    render();
+  }
+
+  function deleteExpense(id) {
+    askConfirm(t('confirmDel'), () => {
+      state.expenses = state.expenses.filter(e => e.id !== id);
+      save(); render();
+    });
+  }
+
+  function exportCsv() {
+    const esc = s => '"' + String(s).replace(/"/g, '""') + '"';
+    const lines = [['date', 'name', 'category', 'amount', 'currency'].join(',')];
+    state.expenses.forEach(e => lines.push([e.date, esc(e.name), catName(e.category), e.amount, state.currency].join(',')));
+    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'expenses.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function calcSplit() {
+    const p = parseInt($('people').value, 10);
+    const out = $('splitResult');
+    if (!(p >= 1)) { out.textContent = t('badPeople'); return; }
+    const total = state.expenses.reduce((s, e) => s + e.amount, 0);
+    out.textContent = t('perPerson') + money(total / p);
+  }
+
+  /* ---------- init ---------- */
+  function init() {
+    load();
+    document.body.classList.toggle('dark', state.dark);
+    $('themeBtn').textContent = state.dark ? '☀️' : '🌙';
+    $('lang').value = state.lang;
+    $('currency').value = state.currency;
+    $('date').value = today();
+    applyI18n();
+    render();
+
+    $('form').addEventListener('submit', e => e.preventDefault());
+    $('addBtn').addEventListener('click', addExpense);
+    $('form').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') addExpense(e);
+    });
+    $('modalBg').addEventListener('click', e => { if (e.target === $('modalBg')) $('modalNo').click(); });
+    $('list').addEventListener('click', e => {
+      const btn = e.target.closest('.del');
+      if (btn) deleteExpense(btn.dataset.id);
+    });
+    ['filterCat', 'sort'].forEach(id => $(id).addEventListener('change', renderList));
+    $('search').addEventListener('input', renderList);
+    $('saveBudget').addEventListener('click', () => {
+      state.budget = Math.max(0, parseFloat($('budget').value) || 0);
+      save(); render();
+    });
+    $('lang').addEventListener('change', e => { state.lang = e.target.value; save(); applyI18n(); render(); $('splitResult').textContent = ''; });
+    $('currency').addEventListener('change', e => { state.currency = e.target.value; save(); render(); $('splitResult').textContent = ''; });
+    $('themeBtn').addEventListener('click', () => {
+      state.dark = !state.dark;
+      document.body.classList.toggle('dark', state.dark);
+      $('themeBtn').textContent = state.dark ? '☀️' : '🌙';
+      save();
+    });
+    $('csvBtn').addEventListener('click', exportCsv);
+    $('clearBtn').addEventListener('click', () => {
+      if (!state.expenses.length) return;
+      askConfirm(t('confirmClear'), () => { state.expenses = []; save(); render(); });
+    });
+    $('splitBtn').addEventListener('click', calcSplit);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
